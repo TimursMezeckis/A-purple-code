@@ -1,0 +1,48 @@
+from pyspark.sql import SparkSession
+from pyspark.sql.types import IntegerType
+from pyspark.sql.functions import sys, col, upper, month, size, split
+from pyspark.sql.functions import max as sparkMax, min as SparkMin, avg as SparkAvg
+
+# To run: spark-submit --master yarn --deploy-mode cluster Analytical_layer_apod.py YYYY MM DD
+
+# These are variables for command line arguments
+year = sys.argv[1]
+month_arg = sys.argv[2] # mashed up with sql function month, therefore it's named month_arg
+day = sys.argv[3]
+
+# This is needed to enable hive ussage on this code
+spark = SparkSession.builder.appName("analytical_layer_apod").enableHiveSupport().getOrCreate()
+spark.conf.set("hive.exec.dynamic.partition.mode", "nonstrict")
+
+#Reads test table with specific date from timurs_test table
+analytical_raw = spark.read.table("apod_timurs_test.apod_test").filter((col("year") == year) & (col("month") == month_arg) & (col("day") == day))
+
+# adjust data from timurs_test table as it was desribed in task notes.
+analytical_end = analytical_raw.withColumn("date", col("date").cast("date")) \
+        .withColumn("title", upper(col("title")))
+
+# write adjusted data to new table in hive.
+analytical_end.write.format("hive").mode("append").partitionBy("year", "month", "day").saveAsTable("apod_timurs_analytical.apod_analytical" )
+
+#Reads data from analytical table that is filtered for specific month
+dashboard_raw = spark.read.table("apod_timurs_analytical.apod_analytical").filter((col("year") == year) & (col("month") == month_arg))
+
+# In these lines we extra columns: timeframe shows month of data and count tables show how many words are in these columns.
+dashboard_count = dashboard_raw \
+        .withColumn("timeframe",month(col("date"))) \
+        .withColumn("explanation_count_all", size(split(col("explanation"), " ")).cast(IntegerType())) \
+        .withColumn("title_count_all", size(split(col("title"), " ")).cast(IntegerType()))
+
+# Create a datafrane with min,max,avg columns that were requested in exercise
+# SQL functions were renamed to  SparkMin, sparkMax, SparkAvg as they interfered with basic Python functions
+
+dashboard_end = dashboard_count.groupBy("timeframe") \
+        .agg(SparkMin("explanation_count_all").alias("explanation_count_min"),
+                SparkMin("title_count_all").alias("title_count_min"),
+                sparkMax("explanation_count_all").alias("explanation_count_max"),
+                sparkMax("title_count_all").alias("title_count_max"),
+                SparkAvg("explanation_count_all").alias("explanation_count_total"),
+                SparkAvg("title_count_all").alias("title_count_average"))
+
+# write new data to new table in hive.
+dashboard_end.write.format("hive").mode("overwrite").saveAsTable("apod_timurs_analytical.v_apod_dashboard_monthly")
