@@ -1,0 +1,31 @@
+# This script is used for Kafka producer to send NASA API data
+# Producer can be launched with - /bin/python3 /home/timurs_mezeckis/KafkaProducer.py apod C2v8xKZWhZczMIQo9IoURKUHWcvi1V9dGDTdvVjr api.analyst.data.apod_timurs
+
+from kafka import KafkaProducer
+from kafka.errors import KafkaError
+from nasa_client import data_api
+import sys
+import json
+
+api_name = sys.argv[1] # Apod or Insight as argument
+api_key = sys.argv[2]  # Api key as argument
+topic = sys.argv[3] # kafka topic as argument
+
+insight_api = f"https://api.nasa.gov/insight_weather/?api_key={api_key}&feedtype=json&ver=1.0"
+apod_api = f"https://api.nasa.gov/planetary/apod?api_key={api_key}"
+
+def kafka_producer():
+    global api_name
+    producer = KafkaProducer(bootstrap_servers=['node1.cloudera:9092']) # producer is defined an server is established
+    if api_name.lower() == "apod":
+        api_name = apod_api
+    elif api_name.lower() == "insight":
+        api_name = insight_api
+    try:
+        producer.send(topic, json.dumps(data_api(api_name)).encode('utf-8')) # specifies topic where producer will send data
+        print("Producer sent.")
+    except KafkaError:
+        print("Producer failed")
+
+if __name__ == '__main__':
+    kafka_producer()
