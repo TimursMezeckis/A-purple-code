@@ -1,0 +1,27 @@
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import size, when
+
+#spark-submit --master yarn --deploy-mode cluster insight_dashboard.py
+
+#This is needed to enable hive ussage on this code
+spark = SparkSession.builder.appName("insight_dashboard").enableHiveSupport().getOrCreate()
+spark.conf.set("hive.exec.dynamic.partition.mode", "nonstrict")
+
+#Reads hive tables.
+analytical_raw = spark.read.table("insight_timurs_analytical.insight_analytical")
+validation_raw = spark.read.table("insight_timurs_analytical.insight_validation")
+
+#Joints two tables together in one
+#Rename columns to what was requested.
+#Create a new table that filters tables, if size is lest than 10 its false, if it's more than 10 is true.
+#Tables that are not needed for hive table is droped.
+daily_end = analytical_raw.join(validation_raw, ["sol"], "inner") \
+.withColumnRenamed("sol", ("mars_sol")) \
+.withColumnRenamed("date", ("earth_sol")) \
+.withColumn("t_data_valid", when(size("t_validity") < 10, False).otherwise(True))\
+.withColumn("p_data_valid", when(size("p_validity") < 10, False).otherwise(True))\
+.withColumn("v_data_valid", when(size("v_validity") < 10, False).otherwise(True)) \
+.drop("t_min","t_max", "p_min", "p_max", "v_min", "v_max", "year", "month","day", "t_validity","p_validity", "v_validity" ) \
+
+#Saves data to hive table
+daily_end.write.format("hive").mode("overwrite").saveAsTable("insight_timurs_analytical.v_insight_dashboard_1st")
