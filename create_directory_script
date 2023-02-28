@@ -1,0 +1,31 @@
+#! /usr/bin/bash
+
+# Script is used to create directories in Bash, if they already exists it won't change anything.
+# Bash command: bash create_directory.sh
+
+echo "Creating test directories"
+
+hdfs dfs -mkdir -p /interns/test/landing/insight_timurs_test/insight_timurs_landing
+hdfs dfs -mkdir -p /interns/test/landing/apod_timurs_test/apod_timurs_landing
+hdfs dfs -mkdir -p /interns/test/base/insight_timurs_test
+hdfs dfs -mkdir -p /interns/test/base/apod_timurs_test
+hdfs dfs -mkdir -p /interns/test/analytical/insight_timurs_test
+hdfs dfs -mkdir -p /interns/test/analytical/apod_timurs_test
+hdfs dfs -mkdir -p /interns/test/error/timurs_mezeckis_log
+
+echo "Creating prod directories"
+
+hdfs dfs -mkdir -p /interns/prod/landing/insight_timurs/insight_timurs_landing
+hdfs dfs -mkdir -p /interns/prod/landing/apod_timurs/apod_timurs_landing
+hdfs dfs -mkdir -p /interns/prod/base/insight_timurs
+hdfs dfs -mkdir -p /interns/prod/base/apod_timurs
+hdfs dfs -mkdir -p /interns/prod/analytical/apod_timurs
+hdfs dfs -mkdir -p /interns/prod/analytical/insight_timurs
+hdfs dfs -mkdir -p /interns/prod/error/timurs_mezeckis_log
+
+echo "Creating checpoint directories"
+
+hdfs dfs -mkdir -p /interns/checkpoint/test/insight_timurs_test
+hdfs dfs -mkdir -p /interns/checkpoint/test/apod_timurs_test
+hdfs dfs -mkdir -p /interns/checkpoint/prod/insight_timurs
+hdfs dfs -mkdir -p /interns/checkpoint/prod/apod_timurs
