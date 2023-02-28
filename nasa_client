@@ -1,0 +1,31 @@
+# This code is used to fetch data from Nasa services like APOD or Insight.
+import requests
+import sys
+
+def data_api(url):
+
+    outcome = requests.get(url) # sends "get" request to defined url
+    if int(outcome.headers["X-RateLimit-Remaining"]) > 0:
+        response = requests.get(url).json() # converts response to json file and returns it
+        print(" Requests left this hour : ", int(outcome.headers["X-RateLimit-Remaining"])) #if there is more that one request attempt left it will print how much there is.
+        print(response) # prints data from api
+        return response
+
+    elif int(Outcome.headers["X-RateLimit-Remaining"]) <= 0:
+        print("API KEY LIMIT REACHED, LIMIT RESETS ON HOURLY BASIS") # if limit of the requests has been reached, this message will be printed
+
+def main(): # this is meant to define what link will be chosen base on input of sys.argv[1] when writen in comand line
+  
+  	api_name = sys.argv[1] # choose Apod or Insight
+	api_key = sys.argv[2] # choose Key for API
+
+    insight_api = f"https://api.nasa.gov/insight_weather/?api_key={api_key}&feedtype=json&ver=1.0"
+    apod_api = f"https://api.nasa.gov/planetary/apod?api_key={api_key}"
+
+    if api_name.lower() == "apod":
+        data_api(apod_api)
+    elif api_name.lower() == "insight":
+        data_api(insight_api)
+
+if __name__ == "__main__":  # allows you to execute code when the file runs as a script
+    main()
