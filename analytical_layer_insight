@@ -1,0 +1,28 @@
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import  col, round
+
+#To run: spark-submit --master yarn --deploy-mode cluster analytical_layer_insight.py
+
+#This is needed to enable hive ussage on this code
+spark = SparkSession.builder.appName("analytical_layer_insight").enableHiveSupport().getOrCreate()
+spark.conf.set("hive.exec.dynamic.partition.mode", "nonstrict")
+
+#Reads hive table.
+analytical_raw = spark.read.table("insight_timurs_test.insight_test")
+
+#Sets columns date and sol to requested type, and rounding other columns to 1 decimal after comma.
+analytical_end = analytical_raw \
+    .withColumn("date", col("date").cast("date")) \
+    .withColumn("sol", col("sol").cast("int")) \
+    .withColumn("t_min", round("t_min", 1)) \
+    .withColumn("t_max", round("t_max", 1)) \
+    .withColumn("t_avg", round("t_avg", 1)) \
+    .withColumn("p_min", round("p_min", 1)) \
+    .withColumn("p_max", round("p_max", 1)) \
+    .withColumn("p_avg", round("p_avg", 1)) \
+    .withColumn("v_min", round("v_min", 1)) \
+    .withColumn("v_max", round("v_max", 1)) \
+    .withColumn("v_avg", round("v_avg", 1))
+
+#Writes data to table in hive
+analytical_end.write.format("hive").mode("overwrite").partitionBy("year", "month", "day").saveAsTable("insight_timurs_analytical.insight_analytical")
