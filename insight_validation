@@ -1,0 +1,59 @@
+from pyspark.sql import SparkSession
+from pyspark.sql.types import StructType, StructField, StringType, MapType, ArrayType, IntegerType
+from pyspark.sql.functions import  col, sys, explode, from_json, lit
+
+#To run: spark-submit --master yarn --deploy-mode cluster insight_validation.py 2023 01 19
+
+#These are date variables for comand line arguments
+year =sys.argv[1]
+month = sys.argv[2]
+day = sys.argv[3]
+
+#This is needed to enable hive ussage on this code
+spark = SparkSession.builder.appName("insight_validation").enableHiveSupport().getOrCreate()
+spark.conf.set("hive.exec.dynamic.partition.mode", "nonstrict")
+
+#This is path from where json data is taken from
+path_insight = spark.read.json("/interns/test/landing/insight_timurs_test/insight_timurs_landing/ingest_"+ year +"-"+ month +"-"+ day +"/*.json")
+
+#We make a schema skelleton that we will apply to Json file later.
+schema_insight = StructType([
+    StructField("AT",StructType([
+            StructField("sol_hours_with_data", ArrayType(IntegerType()),True),
+        ])),
+        StructField("HWS",StructType([
+            StructField("sol_hours_with_data", ArrayType(IntegerType()),True),
+        ])),
+        StructField("PRE",StructType([
+            StructField("sol_hours_with_data", ArrayType(IntegerType()),True)
+        ]))
+        ])
+
+#We pars data into value column and explode the resulting array, the we filter rows by validity_checks.
+#We do the same exploding and now we filter to exclude sol_hours_required & sols_checked.
+insight_raw = path_insight \
+        .withColumn("value", from_json(col("value"), MapType(StringType(), StringType()))) \
+        .select(explode(col("value"))).filter(col("key")=="validity_checks") \
+        .withColumn("value", from_json(col("value"), MapType(StringType(), StringType()))) \
+        .select(explode(col("value"))) \
+        .filter((col("key") != "sol_hours_required") & (col("key") != "sols_checked")) \
+        .select("key", "value") \
+
+#Put parsed data inside schema..
+insight_map = insight_raw.withColumn("value", from_json(col("value"), schema_insight)).select("key", "value.*")
+
+#Adjust data types, rename columns and adds curents date columns.
+validation_clear = insight_map \
+.withColumn("sol", col("key").cast("int"))\
+.withColumn("t_validity", col("AT.sol_hours_with_data"))\
+.withColumn("p_validity", col("PRE.sol_hours_with_data"))\
+.withColumn("v_validity", col("HWS.sol_hours_with_data"))\
+.withColumn("year", lit(year).cast("int")) \
+.withColumn("month", lit(month).cast("int")) \
+.withColumn("day", lit(day).cast("int")) \
+
+#Drop columns that won't go inside hive table
+validation_end = validation_clear.drop("key","AT", "HWS", "PRE")
+
+#Saves data to hive table
+validation_end.write.format("hive").mode("overwrite").partitionBy("year", "month", "day").saveAsTable("insight_timurs_analytical.insight_validation")
