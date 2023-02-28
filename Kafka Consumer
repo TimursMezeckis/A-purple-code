@@ -1,0 +1,44 @@
+# This is consumer that writes data from kafka prodducer
+# To run this code you need to use: spark-submit --deploy-mode cluster  --master yarn kafka_consumer.py "apod / insight" YYYY-MM-DD
+
+from pyspark.sql import SparkSession
+from pyspark.sql.types import StringType
+import sys
+from datetime import datetime
+
+api_name = sys.argv[1] # You have to choose apod or insight
+topic = r"api.analyst.data." + api_name + r"_timurs" #Location of apod or insight topic
+date = sys.argv[2] # insert day (YYYY-MM-DD)
+file_path = r"/interns/test/landing/" + api_name + r"_timurs_test/" + api_name + r"_timurs_landing/ingest_" + date #Filepath where consumer data will be saved
+checkpoint = r"/interns/checkpoint/test/" + api_name + r"_timurs_test" # Filepath where chepoint data will be saved 
+
+def main():
+
+    # This sparksesion reads data from kafka topic 
+    spark = SparkSession.builder.appName("kafka_consumer").getOrCreate() 
+
+    df = spark \
+        .readStream \
+        .format("kafka") \
+        .option("kafka.bootstrap.servers", "192.168.1.101:9092") \
+        .option("subscribe", topic) \
+        .option("startingOffsets", "earliest") \
+        .option("failOnDataLoss", "false") \
+        .load()
+
+    # This code part cleans data so it's readable by eye
+    df_clean = (df
+        .withColumn("key", df["key"].cast(StringType()))
+        .withColumn("value", df["value"].cast(StringType())))git b
+
+    df_final = df_clean.select(df_clean.value)
+
+    # This code writes consumer data to file in JSON format 
+    df_final.writeStream \
+        .format("json") \
+        .option("path", file_path) \
+        .option("checkpointLocation", checkpoint) \
+        .start().awaitTermination(30)
+
+if __name__ == "__main__":
+    main()
